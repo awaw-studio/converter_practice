@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Conversion Mastery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .input-active { border-color: #3b82f6 !important; ring: 2px; ring-color: #bfdbfe; background-color: #f0f9ff !important; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .quiz-card { transition: all 0.3s ease; }
+        .quiz-card:focus-within { transform: translateX(5px); border-left: 4px solid #3b82f6; }
+        .checkbox-custom:checked { background-color: #3b82f6; border-color: #3b82f6; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-800">Unit Conversion Mastery</h1>
+            <p class="text-slate-500 mt-2"></p>
+        </header>
+
+        <nav class="flex space-x-2 mb-6 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+            <button onclick="switchTab('length')" id="tab-length" class="tab-btn flex-1 py-2 px-4 rounded-lg font-semibold transition-all duration-200">长度 (Length)</button>
+            <button onclick="switchTab('currency')" id="tab-currency" class="tab-btn flex-1 py-2 px-4 rounded-lg font-semibold transition-all duration-200">货币 (Currency)</button>
+            <button onclick="switchTab('weight')" id="tab-weight" class="tab-btn flex-1 py-2 px-4 rounded-lg font-semibold transition-all duration-200">重量 (Weight)</button>
+            <button onclick="switchTab('capacity')" id="tab-capacity" class="tab-btn flex-1 py-2 px-4 rounded-lg font-semibold transition-all duration-200">容量 (Capacity)</button>
+        </nav>
+
+        <section class="bg-white rounded-2xl shadow-md p-6 border border-slate-200 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+                <div class="space-y-3">
+                    <label class="block text-sm font-bold text-slate-700">选择练习单位 (必须选两个)</label>
+                    <div id="unit-selector-group" class="flex flex-wrap gap-4 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                        </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-3">数值范围 (Min - Max)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="range-min" value="1" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-center focus:ring-2 focus:ring-blue-400 outline-none">
+                        <span class="text-slate-400">-</span>
+                        <input type="number" id="range-max" value="100" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-center focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
+                </div>
+
+                <div class="h-full flex items-end">
+                    <button onclick="generateQuiz()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-xl transition-all shadow-lg shadow-blue-200">
+                        生成 20 道随机题目
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="quiz-section" class="hidden">
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="font-bold text-slate-600 italic text-sm">操作指引: 输入答案后按 Enter ↵ 自动进入下一题</h2>
+                    <div id="score-display" class="hidden text-emerald-700 font-bold bg-emerald-50 px-6 py-1 rounded-full border border-emerald-200 animate-pulse"></div>
+                </div>
+                
+                <div id="quiz-container" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-0 p-4">
+                    </div>
+
+                <div class="bg-slate-50 px-6 py-8 border-t border-slate-200 flex flex-col md:flex-row justify-center items-center gap-4">
+                    <button id="submit-btn" onclick="checkAnswers()" class="w-full md:w-auto bg-slate-800 hover:bg-black text-white font-bold py-4 px-16 rounded-xl transition-all shadow-xl">
+                        提交批改 (Enter)
+                    </button>
+                    <button onclick="resetApp()" class="w-full md:w-auto bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-4 px-8 rounded-xl transition-all">
+                        重置系统
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const config = {
+            length: { units: ['km', 'm', 'cm'], ratio: { 'm': 1, 'cm': 100, 'km': 0.001 } },
+            currency: { units: ['$', 'cent'], ratio: { '$': 1, 'cent': 100 } },
+            weight: { units: ['t', 'kg', 'g'], ratio: { 'g': 1000, 'kg': 1, 't': 0.001 } },
+            capacity: { units: ['L', 'ml'], ratio: { 'ml': 1000, 'L': 1 } }
+        };
+
+        let currentMode = 'length';
+        let currentQuestions = [];
+
+        /**
+         * 切换标签页并渲染对应的勾选框
+         */
+        function switchTab(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
+                btn.classList.add('text-slate-500', 'hover:bg-slate-100');
+            });
+            document.getElementById(`tab-${mode}`).classList.add('bg-blue-600', 'text-white', 'shadow-md');
+
+            const group = document.getElementById('unit-selector-group');
+            group.innerHTML = config[mode].units.map(u => `
+                <label class="inline-flex items-center cursor-pointer space-x-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 transition-all">
+                    <input type="checkbox" name="unit-choice" value="${u}" checked 
+                           class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 checkbox-custom">
+                    <span class="text-slate-700 font-medium">${u}</span>
+                </label>
+            `).join('');
+
+            document.getElementById('quiz-section').classList.add('hidden');
+        }
+
+        function calculateAnswer(val, from, to) {
+            const baseRatio = config[currentMode].ratio;
+            const baseVal = val / baseRatio[from];
+            const result = baseVal * baseRatio[to];
+            return parseFloat(result.toPrecision(12));
+        }
+
+        function generateQuiz() {
+            // 获取选中的单位
+            const selectedUnits = Array.from(document.querySelectorAll('input[name="unit-choice"]:checked')).map(el => el.value);
+            
+            if (selectedUnits.length !== 2) {
+                alert("为了练习效果，请务必且只能勾选两个单位进行转换练习！");
+                return;
+            }
+
+            const min = parseInt(document.getElementById('range-min').value);
+            const max = parseInt(document.getElementById('range-max').value);
+            const container = document.getElementById('quiz-container');
+
+            container.innerHTML = '';
+            currentQuestions = [];
+            document.getElementById('score-display').classList.add('hidden');
+
+            for (let i = 0; i < 20; i++) {
+                // 随机决定方向：A->B 或 B->A
+                const direction = Math.random() > 0.5;
+                const fromUnit = direction ? selectedUnits[0] : selectedUnits[1];
+                const toUnit = direction ? selectedUnits[1] : selectedUnits[0];
+
+                let val = Math.floor(Math.random() * (max - min + 1)) + min;
+
+                // 货币逻辑
+                if (currentMode === 'currency') {
+                    if (fromUnit === '$') {
+                        val = (Math.floor(Math.random() * (max * 20 - min * 20 + 1)) + min * 20) * 0.05;
+                        val = parseFloat(val.toFixed(2));
+                    } else {
+                        val = (Math.floor(Math.random() * (max / 5 - min / 5 + 1)) + Math.ceil(min / 5)) * 5;
+                    }
+                }
+
+                const answer = calculateAnswer(val, fromUnit, toUnit);
+                currentQuestions.push({ val, fromUnit, toUnit, answer });
+
+                const qDiv = document.createElement('div');
+                qDiv.className = "quiz-card flex items-center justify-between p-4 border-b border-slate-100 hover:bg-slate-50 transition-all";
+                qDiv.innerHTML = `
+                    <div class="flex-1 font-semibold text-slate-700">
+                        <span class="inline-block w-6 text-slate-300 font-normal text-xs">${i + 1}</span>
+                        <span class="text-lg">${val}</span> <span class="text-blue-500 text-sm italic">${fromUnit}</span>
+                        <span class="mx-2 text-slate-300">=</span>
+                    </div>
+                    <div class="flex items-center space-x-2 relative">
+                        <input type="number" step="any" id="ans-${i}" 
+                            onkeydown="handleKey(event, ${i})"
+                            class="w-28 bg-white border border-slate-200 rounded-lg p-2 text-center font-bold text-slate-800 focus:input-active transition-all" 
+                            placeholder="?">
+                        <span class="w-10 text-slate-500 font-bold text-sm">${toUnit}</span>
+                        <div id="feedback-${i}" class="absolute -right-6"></div>
+                    </div>
+                `;
+                container.appendChild(qDiv);
+            }
+
+            document.getElementById('quiz-section').classList.remove('hidden');
+            setTimeout(() => document.getElementById('ans-0').focus(), 300);
+        }
+
+        function handleKey(event, index) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const nextId = `ans-${index + 1}`;
+                const nextEl = document.getElementById(nextId);
+                if (nextEl) {
+                    nextEl.focus();
+                    nextEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    checkAnswers();
+                }
+            }
+        }
+
+        function checkAnswers() {
+            let score = 0;
+            currentQuestions.forEach((q, i) => {
+                const input = document.getElementById(`ans-${i}`);
+                const feedback = document.getElementById(`feedback-${i}`);
+                const userAns = parseFloat(input.value);
+                const isCorrect = Math.abs(userAns - q.answer) < 0.00001;
+
+                if (isCorrect) {
+                    score++;
+                    feedback.innerHTML = `<span class="text-emerald-500 font-bold text-xl">✓</span>`;
+                    input.classList.add('border-emerald-500', 'bg-emerald-50');
+                } else {
+                    feedback.innerHTML = `<span class="text-red-500 font-bold text-xl">✗</span>`;
+                    input.classList.add('border-red-500', 'bg-red-50');
+                    const hint = document.createElement('div');
+                    hint.className = "text-[11px] text-red-500 absolute top-11 right-8 whitespace-nowrap bg-white px-2 shadow-sm border border-red-100 z-10 rounded-full font-bold";
+                    hint.innerText = `答: ${q.answer}`;
+                    feedback.appendChild(hint);
+                }
+            });
+
+            const scoreDisplay = document.getElementById('score-display');
+            scoreDisplay.innerText = `最终得分: ${score} / 20`;
+            scoreDisplay.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetApp() {
+            if (confirm("确定重置所有练习吗？")) switchTab(currentMode);
+        }
+
+        window.onload = () => switchTab('length');
+    </script>
+</body>
+</html>
